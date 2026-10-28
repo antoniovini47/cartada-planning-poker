@@ -8,7 +8,7 @@ Sem cadastro · Sem servidor · Sem banco de dados · Grátis
 
 **[cartada-planning-poker.vercel.app](https://cartada-planning-poker.vercel.app)**
 
-![Mesa do Cartada com as cartas reveladas](docs/screenshot.png)
+![Mesa do Cartada com as cartas reveladas](screenshot.png)
 
 </div>
 
