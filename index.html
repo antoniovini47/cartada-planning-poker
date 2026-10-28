@@ -6,9 +6,6 @@
 <title>Cartada</title>
 <meta name="description" content="Planning poker direto ao ponto. Sem cadastro, sem servidor, grátis.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='16' height='22' rx='3' fill='%231c6b4a' transform='rotate(-12 12 17)'/%3E%3Crect x='12' y='4' width='16' height='22' rx='3' fill='%23f5b544' transform='rotate(10 20 15)'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0d1220;
@@ -29,7 +26,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; display: flex; flex-direction: column;
-    font-family: Outfit, system-ui, sans-serif; color: var(--fg);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: var(--fg);
     background: radial-gradient(1200px 600px at 50% -10%, #1b2645 0%, var(--bg) 60%) fixed, var(--bg);
   }
   button { font: inherit; cursor: pointer; border: 0; }
@@ -64,6 +61,8 @@
   .repo { display: inline-flex; align-items: center; gap: 8px; color: var(--gold); font-size: 14px; font-weight: 600; text-decoration: none; }
   .repo:hover { text-decoration: underline; }
   .repo svg { width: 16px; height: 16px; }
+  .check { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
+  .check input { width: auto; accent-color: var(--gold); }
   .perks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
 
   .board { display: grid; gap: 22px; justify-items: center; width: min(820px, 100%); }
@@ -80,6 +79,11 @@
     border: 3px solid var(--paper); box-shadow: 0 6px 14px rgba(0, 0, 0, .35); animation: drop .25s ease-out;
   }
   .mini.face { background: var(--paper); color: var(--ink); box-shadow: 0 6px 14px rgba(0, 0, 0, .35); }
+  .seat.waiting .mini { border-color: var(--gold); animation: pulse 1.2s ease-in-out infinite; }
+  .seat.waiting .name::after { content: ' …'; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .watchers { font-size: 13px; color: var(--muted); text-align: center; }
+  .watchers .me { color: var(--gold); font-weight: 700; }
   .mini.flip { animation: flip .5s ease-out both; }
   @keyframes flip { from { transform: rotateY(90deg) scale(.9); } to { transform: none; } }
   @keyframes drop { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -92,6 +96,8 @@
     box-shadow: inset 0 0 40px rgba(0, 0, 0, .45), 0 0 0 2px #6b4527, 0 24px 60px rgba(0, 0, 0, .5);
   }
   .table .hint { color: rgba(255, 255, 255, .7); font-size: 15px; }
+  .countdown { font-size: 72px; font-weight: 800; line-height: 1; color: var(--paper); animation: pop .9s ease-out; }
+  @keyframes pop { from { transform: scale(1.6); opacity: 0; } 30% { transform: none; opacity: 1; } }
   .stats { display: flex; align-items: baseline; gap: 10px; }
   .avg { font-size: 44px; font-weight: 800; line-height: 1; color: var(--paper); }
   .avg-label { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: rgba(255, 255, 255, .65); }
@@ -126,7 +132,7 @@
     #tools .chip { display: none; }
   }
 </style>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
 </head>
 <body>
 <header>
@@ -152,9 +158,11 @@
   const LEAVE_GRACE_MS = 10_000;
   const HEARTBEAT_MS = 5_000;
   const HOST_TIMEOUT_MS = 15_000;
+  const COUNTDOWN_S = 3;
   const NAME_KEY = 'pp:name';
   const TOKEN_KEY = 'pp:token';
   const LAST_ROOM_KEY = 'pp:last-room';
+  const SPECTATOR_KEY = 'pp:spectator';
   const ROOM_ID = /^[a-z0-9]{6,32}$/i;
   const REPO_URL = 'https://github.com/antoniovini47/cartada-planning-poker';
   const GITHUB_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -167,6 +175,7 @@
   let peer;
   let send;
   let myName;
+  let mySpectator = false;
   let myVote = null;
   let lastJson = '';
   let lastRevealed = false;
@@ -232,6 +241,7 @@
         <p>${subtitle}</p>
         <form>
           <input name="name" maxlength="30" placeholder="Como te chamam?" required value="${esc(recall(NAME_KEY) ?? '')}" autofocus>
+          <label class="check"><input type="checkbox" name="spectator" ${recall(SPECTATOR_KEY) ? 'checked' : ''}> Só assistir (não voto)</label>
           <button class="btn">${label}</button>
         </form>
         <div class="perks"><span class="chip">Sem cadastro</span><span class="chip">Tempo real</span><span class="chip">Grátis</span></div>
@@ -241,34 +251,38 @@
       e.preventDefault();
       const name = e.target.name.value.trim();
       if (!name) return;
-      onSubmit(name);
+      onSubmit(name, e.target.spectator.checked);
     };
   }
 
   // Host: the first browser to claim the room's peer id holds the state and relays it.
   function createHost(token) {
     const hostPeer = peer;
-    const room = { revealed: false, players: new Map() };
+    // A new host was a participant until now, so its own view of "revealed" carries the round across a failover.
+    const room = { revealed: lastRevealed, countdown: null, timer: null, players: new Map() };
     const views = new Map();
 
     function snapshot(me) {
       const players = [...room.players].map(([id, p]) => ({
         id,
         name: p.name,
+        spectator: p.spectator,
         voted: p.vote !== null,
         vote: room.revealed || id === me ? p.vote : null,
       }));
-      return { me, revealed: room.revealed, players };
+      return { me, revealed: room.revealed, countdown: room.countdown, players };
     }
 
     function publish() {
       for (const [view, id] of views) view(snapshot(id));
     }
 
-    function join(id, view, name, vote) {
+    function join(id, view, name, vote, spectator) {
       const player = room.players.get(id) ?? { vote: null, connections: 0 };
       player.name = String(name).trim().slice(0, 30) || 'Anônimo';
-      if (player.vote === null && DECK.includes(vote)) player.vote = vote;
+      player.spectator = spectator === true;
+      if (player.spectator) player.vote = null;
+      else if (player.vote === null && DECK.includes(vote)) player.vote = vote;
       player.connections++;
       room.players.set(id, player);
       views.set(view, id);
@@ -289,15 +303,32 @@
       }, LEAVE_GRACE_MS);
     }
 
+    function startCountdown() {
+      room.countdown = COUNTDOWN_S;
+      room.timer = setInterval(() => {
+        if (hostPeer.destroyed) return clearInterval(room.timer);
+        room.countdown--;
+        if (room.countdown === 0) {
+          clearInterval(room.timer);
+          room.countdown = null;
+          room.revealed = true;
+        }
+        publish();
+      }, 1000);
+    }
+
     function act(id, msg) {
       const player = room.players.get(id);
       if (!player) return;
       if (msg.type === 'vote') {
-        if (room.revealed || (msg.card !== null && !DECK.includes(msg.card))) return;
+        if (room.revealed || player.spectator || (msg.card !== null && !DECK.includes(msg.card))) return;
         player.vote = msg.card;
       } else if (msg.type === 'reveal') {
-        room.revealed = true;
+        if (room.revealed || room.countdown !== null) return;
+        startCountdown();
       } else if (msg.type === 'reset') {
+        clearInterval(room.timer);
+        room.countdown = null;
         room.revealed = false;
         for (const p of room.players.values()) p.vote = null;
       } else {
@@ -311,7 +342,7 @@
       conn.on('data', async (msg) => {
         if (!id && msg?.type === 'hello' && typeof msg.token === 'string' && msg.token.length <= 64) {
           id = await playerId(msg.token);
-          join(id, (state) => conn.send({ type: 'state', state }), msg.name, msg.vote);
+          join(id, (state) => conn.send({ type: 'state', state }), msg.name, msg.vote, msg.spectator);
         } else if (id) {
           act(id, msg);
         }
@@ -322,7 +353,7 @@
     const heartbeat = setInterval(() => (hostPeer.destroyed ? clearInterval(heartbeat) : publish()), HEARTBEAT_MS);
 
     playerId(token).then((id) => {
-      join(id, render, myName, myVote);
+      join(id, render, myName, myVote, mySpectator);
       send = (msg) => act(id, msg);
     });
   }
@@ -340,7 +371,7 @@
       const conn = peer.connect(PEER_PREFIX + roomId, { reliable: true });
       conn.on('open', () => {
         send = (msg) => conn.send(msg);
-        send({ type: 'hello', token, name: myName, vote: myVote });
+        send({ type: 'hello', token, name: myName, vote: myVote, spectator: mySpectator });
       });
       conn.on('data', (msg) => {
         lastSeen = Date.now();
@@ -402,23 +433,27 @@
     lastRevealed = state.revealed;
 
     const me = state.players.find((p) => p.id === state.me);
-    const voted = state.players.filter((p) => p.voted).length;
+    const voters = state.players.filter((p) => !p.spectator);
+    const watchers = state.players.filter((p) => p.spectator);
+    const voted = voters.filter((p) => p.voted).length;
     myVote = me?.vote ?? null;
 
     const seat = (p) => {
       const card = !p.voted ? 'empty' : state.revealed ? `face${flip ? ' flip' : ''}` : 'back';
+      const waiting = !state.revealed && voted > 0 && !p.voted;
       return `
-        <div class="seat ${p.id === state.me ? 'me' : ''}">
+        <div class="seat ${p.id === state.me ? 'me' : ''} ${waiting ? 'waiting' : ''}">
           <div class="mini ${card}">${state.revealed ? esc(p.vote ?? '') : ''}</div>
           <span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
         </div>`;
     };
-    const top = state.players.filter((_, i) => i % 2 === 0);
-    const bottom = state.players.filter((_, i) => i % 2 === 1);
+    const top = voters.filter((_, i) => i % 2 === 0);
+    const bottom = voters.filter((_, i) => i % 2 === 1);
 
     let center;
     if (state.revealed) center = `${results(state.players)}<button class="btn" data-action="reset">Nova rodada</button>`;
-    else if (voted) center = `<button class="btn" data-action="reveal">Revelar cartas</button><span class="hint">${voted} de ${state.players.length} votaram</span>`;
+    else if (state.countdown) center = `<span class="countdown">${state.countdown}</span>`;
+    else if (voted) center = `<button class="btn" data-action="reveal">Revelar cartas</button><span class="hint">${voted} de ${voters.length} votaram</span>`;
     else center = '<span class="hint">Escolham suas cartas</span>';
 
     app.innerHTML = `
@@ -426,10 +461,13 @@
         <div class="seats">${top.map(seat).join('')}</div>
         <div class="table">${center}</div>
         <div class="seats bottom">${bottom.map(seat).join('')}</div>
+        ${watchers.length ? `<div class="watchers">Assistindo: ${watchers.map((p) => `<span class="${p.id === state.me ? 'me' : ''}">${esc(p.name)}</span>`).join(', ')}</div>` : ''}
       </div>
-      <div class="deck">
-        ${DECK.map((c) => `<button class="card ${myVote === c ? 'sel' : ''}" data-card="${esc(c)}" ${state.revealed ? 'disabled' : ''}><small>${esc(c)}</small>${esc(c)}</button>`).join('')}
-      </div>`;
+      ${me?.spectator
+        ? '<p class="muted">Você está assistindo: pode revelar as cartas e iniciar rodadas.</p>'
+        : `<div class="deck">
+            ${DECK.map((c) => `<button class="card ${myVote === c ? 'sel' : ''}" data-card="${esc(c)}" ${state.revealed ? 'disabled' : ''}><small>${esc(c)}</small>${esc(c)}</button>`).join('')}
+          </div>`}`;
 
     app.querySelectorAll('[data-card]').forEach((b) => {
       b.onclick = () => send({ type: 'vote', card: myVote === b.dataset.card ? null : b.dataset.card });
@@ -437,14 +475,16 @@
     app.querySelector('[data-action]')?.addEventListener('click', (e) => send({ type: e.target.dataset.action }));
   }
 
-  function enterRoom(name) {
+  function enterRoom(name, spectator) {
     myName = name;
+    mySpectator = spectator;
     remember(NAME_KEY, name);
+    remember(SPECTATOR_KEY, spectator);
     remember(LAST_ROOM_KEY, roomId);
     tools.innerHTML = `
       <span class="chip">Sala <b>${esc(roomId)}</b></span>
       <button class="btn ghost" id="copy">Copiar convite</button>
-      <button class="btn ghost" id="rename">Trocar nome</button>`;
+      <button class="btn ghost" id="rename">Nome e modo</button>`;
     document.getElementById('copy').onclick = () => {
       navigator.clipboard.writeText(location.href).then(() => toast('Convite copiado!'));
     };
@@ -481,14 +521,15 @@
       title: 'Car<span>tada</span>',
       subtitle: 'Planning poker direto ao ponto. Abra uma mesa, mande o link e estimem juntos.',
       label: 'Criar sala',
-      onSubmit: (name) => {
+      onSubmit: (name, spectator) => {
         remember(NAME_KEY, name);
+        remember(SPECTATOR_KEY, spectator);
         location.hash = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
       },
     });
     offerLastRoom();
   } else if (recall(NAME_KEY)) {
-    enterRoom(recall(NAME_KEY));
+    enterRoom(recall(NAME_KEY), recall(SPECTATOR_KEY) === true);
   } else {
     joinForm();
   }
