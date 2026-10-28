@@ -113,7 +113,7 @@
   @keyframes drop { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
 
   .table {
-    width: min(560px, 100%); min-height: 190px; border-radius: 999px; padding: 28px 40px;
+    width: min(560px, 100%); min-height: 212px; border-radius: 999px; padding: 28px 40px;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center;
     background: radial-gradient(ellipse at 50% 40%, var(--felt) 0%, var(--felt-dark) 100%);
     border: 12px solid var(--rim);
@@ -123,6 +123,7 @@
   .countdown { font-size: 72px; font-weight: 800; line-height: 1; color: var(--paper); animation: pop .9s ease-out; }
   @keyframes pop { from { transform: scale(1.6); opacity: 0; } 30% { transform: none; opacity: 1; } }
   .stats { display: flex; align-items: baseline; gap: 10px; }
+  .stats .consensus { align-self: center; }
   .avg { font-size: 44px; font-weight: 800; line-height: 1; color: var(--paper); }
   .avg-label { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: rgba(255, 255, 255, .65); }
   .consensus { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--gold-ink); background: var(--gold); border-radius: 999px; padding: 4px 12px; }
@@ -135,6 +136,8 @@
     font-size: 22px; font-weight: 800; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); transition: transform .15s, box-shadow .15s;
   }
   .card small { position: absolute; top: 5px; left: 7px; font-size: 11px; font-weight: 700; color: var(--red); }
+  .deck-hint { margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
+  .deck-hint.hidden { visibility: hidden; }
   .card:hover { transform: translateY(-6px); }
   .card.sel { transform: translateY(-14px); box-shadow: 0 0 0 3px var(--gold), 0 14px 26px rgba(245, 181, 68, .35); }
 
@@ -147,7 +150,7 @@
   footer a:hover { text-decoration: underline; }
 
   @media (max-width: 520px) {
-    .table { border-radius: 40px; padding: 24px 20px; min-height: 160px; }
+    .table { border-radius: 40px; padding: 24px 20px; min-height: 202px; }
     .card { width: 42px; height: 62px; font-size: 17px; border-radius: 8px; }
     .card small { display: none; }
     .deck { gap: 8px; }
@@ -465,8 +468,10 @@
       .sort((a, b) => b[1] - a[1]);
     const consensus = votes.length > 1 && counts.length === 1;
     return `
-      <div class="stats"><span class="avg-label">Média</span><span class="avg">${avg}</span></div>
-      ${consensus ? '<span class="consensus">Consenso!</span>' : ''}
+      <div class="stats">
+        <span class="avg-label">Média</span><span class="avg">${avg}</span>
+        ${consensus ? '<span class="consensus">Consenso!</span>' : ''}
+      </div>
       <div class="dist">${counts.map(([v, n]) => `<span>${esc(v)} × ${n}</span>`).join('')}</div>`;
   }
 
@@ -513,7 +518,7 @@
         : `<div class="deck">
             ${DECK.map((c) => `<button class="card ${myVote === c ? 'sel' : ''}" data-card="${esc(c)}"><small>${esc(c)}</small>${esc(c)}</button>`).join('')}
           </div>
-          ${state.revealed ? '<p class="muted">Mudou de ideia? Ainda dá para trocar o voto; a mesa vê que ele foi alterado.</p>' : ''}`}`;
+          <p class="deck-hint ${state.revealed ? '' : 'hidden'}">Mudou de ideia? Ainda dá para trocar o voto; a mesa vê que ele foi alterado.</p>`}`;
 
     app.querySelectorAll('[data-card]').forEach((b) => {
       b.onclick = () => send({ type: 'vote', card: myVote === b.dataset.card ? null : b.dataset.card });
