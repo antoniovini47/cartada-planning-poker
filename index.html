@@ -61,8 +61,31 @@
   .repo { display: inline-flex; align-items: center; gap: 8px; color: var(--gold); font-size: 14px; font-weight: 600; text-decoration: none; }
   .repo:hover { text-decoration: underline; }
   .repo svg { width: 16px; height: 16px; }
-  .check { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; }
-  .check input { width: auto; accent-color: var(--gold); }
+  .check { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; }
+  .check:has(input:checked) { color: var(--fg); }
+  .check input {
+    appearance: none; flex: none; position: relative; width: 40px; height: 22px; margin: 0; padding: 0; cursor: pointer;
+    border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); transition: background .15s, border-color .15s;
+  }
+  .check input::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--muted); transition: transform .15s, background .15s;
+  }
+  .check input:checked { background: rgba(245, 181, 68, .25); border-color: var(--gold); }
+  .check input:checked::after { transform: translateX(18px); background: var(--gold); }
+  .check input:focus { box-shadow: none; }
+  .check input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  dialog {
+    width: min(380px, calc(100% - 32px)); padding: 28px 24px 24px; border-radius: 16px;
+    background: var(--surface); color: var(--fg); border: 1px solid var(--border); box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  }
+  dialog[open] { animation: drop .2s ease-out; }
+  dialog::backdrop { background: rgba(5, 8, 15, .7); backdrop-filter: blur(4px); }
+  dialog form { width: 100%; margin: 0; gap: 16px; }
+  dialog h2 { margin: 0; font-size: 20px; text-align: center; }
+  .actions { display: flex; gap: 10px; }
+  .actions .btn { flex: 1; padding: 12px; font-size: 15px; }
   .perks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
 
   .board { display: grid; gap: 22px; justify-items: center; width: min(820px, 100%); }
@@ -143,6 +166,17 @@
   <span id="tools"></span>
 </header>
 <main id="app"></main>
+<dialog id="profile">
+  <form method="dialog">
+    <h2>Seu lugar na mesa</h2>
+    <input name="name" maxlength="30" placeholder="Como te chamam?" required>
+    <label class="check"><input type="checkbox" name="spectator"> Só assistir (não voto)</label>
+    <div class="actions">
+      <button class="btn ghost" value="cancel" formnovalidate>Cancelar</button>
+      <button class="btn" value="save">Salvar</button>
+    </div>
+  </form>
+</dialog>
 <footer>
   Sem cadastro, sem servidor: a sala vive nos navegadores de quem está nela.<br>
   Código aberto sob licença MIT, livre para qualquer um usar, copiar e modificar à vontade.
@@ -277,12 +311,16 @@
       for (const [view, id] of views) view(snapshot(id));
     }
 
-    function join(id, view, name, vote, spectator) {
-      const player = room.players.get(id) ?? { vote: null, connections: 0 };
+    function applyProfile(player, name, spectator) {
       player.name = String(name).trim().slice(0, 30) || 'Anônimo';
       player.spectator = spectator === true;
       if (player.spectator) player.vote = null;
-      else if (player.vote === null && DECK.includes(vote)) player.vote = vote;
+    }
+
+    function join(id, view, name, vote, spectator) {
+      const player = room.players.get(id) ?? { vote: null, connections: 0 };
+      applyProfile(player, name, spectator);
+      if (!player.spectator && player.vote === null && DECK.includes(vote)) player.vote = vote;
       player.connections++;
       room.players.set(id, player);
       views.set(view, id);
@@ -323,6 +361,8 @@
       if (msg.type === 'vote') {
         if (room.revealed || player.spectator || (msg.card !== null && !DECK.includes(msg.card))) return;
         player.vote = msg.card;
+      } else if (msg.type === 'profile') {
+        applyProfile(player, msg.name, msg.spectator);
       } else if (msg.type === 'reveal') {
         if (room.revealed || room.countdown !== null) return;
         startCountdown();
@@ -488,11 +528,26 @@
     document.getElementById('copy').onclick = () => {
       navigator.clipboard.writeText(location.href).then(() => toast('Convite copiado!'));
     };
-    document.getElementById('rename').onclick = () => {
-      peer.destroy();
-      joinForm();
-    };
+    document.getElementById('rename').onclick = openProfile;
     connect(loadToken());
+  }
+
+  function openProfile() {
+    const dialog = document.getElementById('profile');
+    const form = dialog.querySelector('form');
+    form.name.value = myName;
+    form.spectator.checked = mySpectator;
+    form.onsubmit = (e) => {
+      if (e.submitter?.value !== 'save') return;
+      const name = form.name.value.trim();
+      if (!name) return e.preventDefault();
+      myName = name;
+      mySpectator = form.spectator.checked;
+      remember(NAME_KEY, myName);
+      remember(SPECTATOR_KEY, mySpectator);
+      send({ type: 'profile', name: myName, spectator: mySpectator });
+    };
+    dialog.showModal();
   }
 
   function joinForm() {
