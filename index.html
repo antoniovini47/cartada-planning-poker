@@ -46,6 +46,7 @@
   .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(245, 181, 68, .35); }
   .btn.ghost { background: var(--surface); color: var(--fg); border: 1px solid var(--border); box-shadow: none; padding: 7px 14px; font-size: 14px; }
   .btn.ghost:hover { background: var(--surface-2); }
+  .btn.back { text-decoration: none; text-align: center; padding: 12px 22px; font-size: 15px; animation: drop .2s ease-out; }
   main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 28px 16px 36px; }
   .muted { color: var(--muted); }
 
@@ -60,6 +61,9 @@
     border-radius: 10px; padding: 13px 14px; width: 100%; outline: none;
   }
   input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245, 181, 68, .2); }
+  .repo { display: inline-flex; align-items: center; gap: 8px; color: var(--gold); font-size: 14px; font-weight: 600; text-decoration: none; }
+  .repo:hover { text-decoration: underline; }
+  .repo svg { width: 16px; height: 16px; }
   .perks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
 
   .board { display: grid; gap: 22px; justify-items: center; width: min(820px, 100%); }
@@ -136,18 +140,24 @@
 <footer>
   Sem cadastro, sem servidor: a sala vive nos navegadores de quem está nela.<br>
   Código aberto sob licença MIT, livre para qualquer um usar, copiar e modificar à vontade.
-  <a href="https://github.com/antoniovini47/planning-poker" target="_blank" rel="noopener">Ver no GitHub</a>
+  <a href="https://github.com/antoniovini47/cartada-planning-poker" target="_blank" rel="noopener">Ver no GitHub</a>
 </footer>
 <script>
   const DECK = ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89', '?', '☕'];
   const PEER_PREFIX = 'ppoker-room-';
-  const TOKEN_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+  const REMEMBER_MS = 365 * 24 * 60 * 60 * 1000;
+  const PROBE_TIMEOUT_MS = 8_000;
+  const PROBE_ATTEMPTS = 3;
+  const PROBE_RETRY_MS = 3_000;
   const LEAVE_GRACE_MS = 10_000;
   const HEARTBEAT_MS = 5_000;
   const HOST_TIMEOUT_MS = 15_000;
   const NAME_KEY = 'pp:name';
   const TOKEN_KEY = 'pp:token';
+  const LAST_ROOM_KEY = 'pp:last-room';
   const ROOM_ID = /^[a-z0-9]{6,32}$/i;
+  const REPO_URL = 'https://github.com/antoniovini47/cartada-planning-poker';
+  const GITHUB_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
   const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="#1f7a52" transform="rotate(-12 12 17)"/><rect x="12" y="4" width="16" height="22" rx="3" fill="#f5b544" transform="rotate(10 20 15)"/></svg>';
 
   const app = document.getElementById('app');
@@ -163,23 +173,41 @@
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-  function storage(key, value) {
+  function recall(key) {
     try {
-      if (value === undefined) return localStorage.getItem(key);
-      localStorage.setItem(key, value);
+      const saved = JSON.parse(localStorage.getItem(key));
+      return saved && saved.expiresAt > Date.now() ? saved.value : null;
     } catch {
       return null;
     }
   }
 
-  function loadToken() {
+  function remember(key, value) {
     try {
-      const saved = JSON.parse(storage(TOKEN_KEY));
-      if (saved && saved.expiresAt > Date.now()) return saved.value;
+      localStorage.setItem(key, JSON.stringify({ value, expiresAt: Date.now() + REMEMBER_MS }));
     } catch {}
+  }
+
+  function loadToken() {
+    const saved = recall(TOKEN_KEY);
+    if (saved) return saved;
     const value = crypto.randomUUID();
-    storage(TOKEN_KEY, JSON.stringify({ value, expiresAt: Date.now() + TOKEN_TTL_MS }));
+    remember(TOKEN_KEY, value);
     return value;
+  }
+
+  // A room is alive only while someone holds its host peer id, so a refused connection means it is empty.
+  function probeRoom(id) {
+    return new Promise((resolve) => {
+      const probe = new Peer();
+      const done = (alive) => {
+        probe.destroy();
+        resolve(alive);
+      };
+      setTimeout(() => done(false), PROBE_TIMEOUT_MS);
+      probe.on('open', () => probe.connect(PEER_PREFIX + id).on('open', () => done(true)));
+      probe.on('error', () => done(false));
+    });
   }
 
   async function playerId(token) {
@@ -203,16 +231,16 @@
         <h1>${title}</h1>
         <p>${subtitle}</p>
         <form>
-          <input name="name" maxlength="30" placeholder="Como te chamam?" required value="${esc(storage(NAME_KEY) ?? '')}" autofocus>
+          <input name="name" maxlength="30" placeholder="Como te chamam?" required value="${esc(recall(NAME_KEY) ?? '')}" autofocus>
           <button class="btn">${label}</button>
         </form>
         <div class="perks"><span class="chip">Sem cadastro</span><span class="chip">Tempo real</span><span class="chip">Grátis</span></div>
+        <a class="repo" href="${REPO_URL}" target="_blank" rel="noopener">${GITHUB_ICON} Código aberto · licença MIT · ver no GitHub</a>
       </section>`;
     app.querySelector('form').onsubmit = (e) => {
       e.preventDefault();
       const name = e.target.name.value.trim();
       if (!name) return;
-      storage(NAME_KEY, name);
       onSubmit(name);
     };
   }
@@ -411,6 +439,8 @@
 
   function enterRoom(name) {
     myName = name;
+    remember(NAME_KEY, name);
+    remember(LAST_ROOM_KEY, roomId);
     tools.innerHTML = `
       <span class="chip">Sala <b>${esc(roomId)}</b></span>
       <button class="btn ghost" id="copy">Copiar convite</button>
@@ -429,6 +459,20 @@
     nameForm({ title: 'Puxe uma <span>cadeira</span>', subtitle: 'Te chamaram para estimar. Diga seu nome e entre na mesa.', label: 'Entrar na sala', onSubmit: enterRoom });
   }
 
+  // Retries cover the few seconds a room takes to elect a new host right after we left it.
+  async function offerLastRoom() {
+    const last = recall(LAST_ROOM_KEY);
+    if (!ROOM_ID.test(last ?? '')) return;
+    for (let i = 0; i < PROBE_ATTEMPTS; i++) {
+      if (await probeRoom(last)) {
+        app.querySelector('form')?.insertAdjacentHTML('beforeend',
+          `<a class="btn ghost back" href="#${esc(last)}">Voltar para a sala <b>${esc(last)}</b></a>`);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, PROBE_RETRY_MS));
+    }
+  }
+
   window.addEventListener('hashchange', () => location.reload());
   window.addEventListener('pagehide', () => peer?.destroy());
 
@@ -437,10 +481,14 @@
       title: 'Car<span>tada</span>',
       subtitle: 'Planning poker direto ao ponto. Abra uma mesa, mande o link e estimem juntos.',
       label: 'Criar sala',
-      onSubmit: () => { location.hash = crypto.randomUUID().replace(/-/g, '').slice(0, 10); },
+      onSubmit: (name) => {
+        remember(NAME_KEY, name);
+        location.hash = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+      },
     });
-  } else if (storage(NAME_KEY)) {
-    enterRoom(storage(NAME_KEY));
+    offerLastRoom();
+  } else if (recall(NAME_KEY)) {
+    enterRoom(recall(NAME_KEY));
   } else {
     joinForm();
   }
