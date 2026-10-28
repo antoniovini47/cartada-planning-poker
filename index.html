@@ -3,39 +3,135 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Planning Poker</title>
+<title>Cartada</title>
+<meta name="description" content="Planning poker direto ao ponto. Sem cadastro, sem servidor, grátis.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='16' height='22' rx='3' fill='%231c6b4a' transform='rotate(-12 12 17)'/%3E%3Crect x='12' y='4' width='16' height='22' rx='3' fill='%23f5b544' transform='rotate(10 20 15)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f4f6fb; --fg:#1d2433; --muted:#6b7385; --card:#fff; --accent:#3b6cf6; --table:#dce6ff; --border:#d5dae5; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); min-height:100vh; display:flex; flex-direction:column; }
-  header { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; background:var(--card); border-bottom:1px solid var(--border); }
-  header strong { font-size:18px; }
-  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:32px; padding:24px 16px; }
-  button { font:inherit; font-weight:600; cursor:pointer; border:0; border-radius:8px; padding:10px 18px; background:var(--accent); color:#fff; }
-  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 12px; }
-  input { font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px; width:100%; }
-  form { display:flex; flex-direction:column; gap:12px; width:min(320px,100%); }
-  .players { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; max-width:720px; }
-  .player { display:flex; flex-direction:column; align-items:center; gap:6px; width:80px; font-size:14px; text-align:center; overflow-wrap:anywhere; }
-  .player.me { font-weight:700; }
-  .slot { width:44px; height:64px; border-radius:8px; border:2px dashed var(--border); display:grid; place-items:center; font-weight:700; font-size:18px; }
-  .slot.voted { background:var(--accent); border:0; }
-  .slot.shown { background:var(--card); border:2px solid var(--accent); color:var(--accent); }
-  .table { background:var(--table); border-radius:24px; padding:32px 40px; min-width:min(280px,100%); text-align:center; }
-  .summary { margin-top:12px; color:var(--muted); font-size:15px; }
-  .deck { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-  .deck button { width:52px; height:76px; padding:0; font-size:18px; background:var(--card); color:var(--accent); border:2px solid var(--accent); transition:transform .1s; }
-  .deck button.sel { background:var(--accent); color:#fff; transform:translateY(-8px); }
-  .deck button:disabled { opacity:.4; cursor:default; }
+  :root {
+    --bg: #0d1220;
+    --surface: #161d2f;
+    --surface-2: #1f2840;
+    --border: rgba(255, 255, 255, .08);
+    --fg: #eef1f8;
+    --muted: #8e98b0;
+    --gold: #f5b544;
+    --gold-ink: #2a1d05;
+    --felt: #1f7a52;
+    --felt-dark: #0f4a31;
+    --rim: #4a2f1b;
+    --paper: #fdfaf2;
+    --ink: #1b2233;
+    --red: #d6455d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    font-family: Outfit, system-ui, sans-serif; color: var(--fg);
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2645 0%, var(--bg) 60%) fixed, var(--bg);
+  }
+  button { font: inherit; cursor: pointer; border: 0; }
+  header {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(13, 18, 32, .7); backdrop-filter: blur(8px);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-weight: 800; font-size: 22px; letter-spacing: -.02em; }
+  .brand svg { width: 30px; height: 30px; }
+  #tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .chip { font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
+  .chip b { color: var(--fg); font-weight: 600; }
+  .btn { font-weight: 600; border-radius: 10px; padding: 12px 22px; background: var(--gold); color: var(--gold-ink); box-shadow: 0 6px 20px rgba(245, 181, 68, .25); transition: transform .12s, box-shadow .12s; }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(245, 181, 68, .35); }
+  .btn.ghost { background: var(--surface); color: var(--fg); border: 1px solid var(--border); box-shadow: none; padding: 7px 14px; font-size: 14px; }
+  .btn.ghost:hover { background: var(--surface-2); }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 28px 16px 36px; }
+  .muted { color: var(--muted); }
+
+  .hero { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; max-width: 440px; }
+  .hero svg { width: 96px; height: 96px; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .4)); }
+  .hero h1 { margin: 0; font-size: clamp(40px, 9vw, 64px); font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+  .hero h1 span { color: var(--gold); }
+  .hero p { margin: 0; color: var(--muted); font-size: 17px; }
+  form { display: flex; flex-direction: column; gap: 12px; width: min(340px, 100%); margin-top: 8px; }
+  input {
+    font: inherit; font-size: 16px; color: var(--fg); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 13px 14px; width: 100%; outline: none;
+  }
+  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245, 181, 68, .2); }
+  .perks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+
+  .board { display: grid; gap: 22px; justify-items: center; width: min(820px, 100%); }
+  .seats { display: flex; flex-wrap: wrap; gap: 18px 22px; justify-content: center; min-height: 96px; align-items: flex-end; }
+  .seats.bottom { align-items: flex-start; }
+  .seat { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 84px; }
+  .seats.bottom .seat { flex-direction: column-reverse; }
+  .name { font-size: 13px; font-weight: 500; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seat.me .name { color: var(--gold); font-weight: 700; }
+  .mini { width: 46px; height: 66px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 20px; }
+  .mini.empty { border: 2px dashed rgba(255, 255, 255, .15); }
+  .mini.back {
+    background: repeating-linear-gradient(45deg, var(--gold) 0 5px, #e09a22 5px 10px);
+    border: 3px solid var(--paper); box-shadow: 0 6px 14px rgba(0, 0, 0, .35); animation: drop .25s ease-out;
+  }
+  .mini.face { background: var(--paper); color: var(--ink); box-shadow: 0 6px 14px rgba(0, 0, 0, .35); }
+  .mini.flip { animation: flip .5s ease-out both; }
+  @keyframes flip { from { transform: rotateY(90deg) scale(.9); } to { transform: none; } }
+  @keyframes drop { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .table {
+    width: min(560px, 100%); min-height: 190px; border-radius: 999px; padding: 28px 40px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center;
+    background: radial-gradient(ellipse at 50% 40%, var(--felt) 0%, var(--felt-dark) 100%);
+    border: 12px solid var(--rim);
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, .45), 0 0 0 2px #6b4527, 0 24px 60px rgba(0, 0, 0, .5);
+  }
+  .table .hint { color: rgba(255, 255, 255, .7); font-size: 15px; }
+  .stats { display: flex; align-items: baseline; gap: 10px; }
+  .avg { font-size: 44px; font-weight: 800; line-height: 1; color: var(--paper); }
+  .avg-label { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: rgba(255, 255, 255, .65); }
+  .consensus { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--gold-ink); background: var(--gold); border-radius: 999px; padding: 4px 12px; }
+  .dist { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .dist span { font-size: 13px; background: rgba(0, 0, 0, .25); border-radius: 999px; padding: 3px 10px; }
+
+  .deck { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 920px; padding-top: 10px; }
+  .card {
+    position: relative; width: 58px; height: 84px; border-radius: 10px; background: var(--paper); color: var(--ink);
+    font-size: 22px; font-weight: 800; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); transition: transform .15s, box-shadow .15s;
+  }
+  .card small { position: absolute; top: 5px; left: 7px; font-size: 11px; font-weight: 700; color: var(--red); }
+  .card:hover:not(:disabled) { transform: translateY(-6px); }
+  .card.sel { transform: translateY(-14px); box-shadow: 0 0 0 3px var(--gold), 0 14px 26px rgba(245, 181, 68, .35); }
+  .card:disabled { opacity: .35; cursor: default; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--paper); color: var(--ink);
+    font-weight: 600; padding: 10px 18px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0, 0, 0, .4); animation: drop .2s ease-out;
+  }
+  footer { text-align: center; padding: 14px; font-size: 12px; color: var(--muted); }
+
+  @media (max-width: 520px) {
+    .table { border-radius: 40px; padding: 24px 20px; min-height: 160px; }
+    .card { width: 42px; height: 62px; font-size: 17px; border-radius: 8px; }
+    .card small { display: none; }
+    .deck { gap: 8px; }
+    .seat { width: 68px; }
+    #tools .chip { display: none; }
+  }
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 <header>
-  <strong>Planning Poker</strong>
+  <a class="brand" href="/">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="#1f7a52" transform="rotate(-12 12 17)"/><rect x="12" y="4" width="16" height="22" rx="3" fill="#f5b544" transform="rotate(10 20 15)"/></svg>
+    Cartada
+  </a>
   <span id="tools"></span>
 </header>
 <main id="app"></main>
+<footer>Sem cadastro, sem servidor: a sala vive nos navegadores de quem está nela.</footer>
 <script>
   const DECK = ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89', '?', '☕'];
   const PEER_PREFIX = 'ppoker-room-';
@@ -46,6 +142,7 @@
   const NAME_KEY = 'pp:name';
   const TOKEN_KEY = 'pp:token';
   const ROOM_ID = /^[a-z0-9]{6,32}$/i;
+  const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="#1f7a52" transform="rotate(-12 12 17)"/><rect x="12" y="4" width="16" height="22" rx="3" fill="#f5b544" transform="rotate(10 20 15)"/></svg>';
 
   const app = document.getElementById('app');
   const tools = document.getElementById('tools');
@@ -55,6 +152,8 @@
   let send;
   let myName;
   let myVote = null;
+  let lastJson = '';
+  let lastRevealed = false;
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -82,13 +181,27 @@
     return [...new Uint8Array(digest)].slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
-  function nameForm(label, onSubmit) {
+  function toast(text) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = text;
+    document.body.append(el);
+    setTimeout(() => el.remove(), 1800);
+  }
+
+  function nameForm({ title, subtitle, label, onSubmit }) {
     tools.innerHTML = '';
     app.innerHTML = `
-      <form>
-        <input name="name" maxlength="30" placeholder="Seu nome" required value="${esc(storage(NAME_KEY) ?? '')}" autofocus>
-        <button>${label}</button>
-      </form>`;
+      <section class="hero">
+        ${LOGO}
+        <h1>${title}</h1>
+        <p>${subtitle}</p>
+        <form>
+          <input name="name" maxlength="30" placeholder="Como te chamam?" required value="${esc(storage(NAME_KEY) ?? '')}" autofocus>
+          <button class="btn">${label}</button>
+        </form>
+        <div class="perks"><span class="chip">Sem cadastro</span><span class="chip">Tempo real</span><span class="chip">Grátis</span></div>
+      </section>`;
     app.querySelector('form').onsubmit = (e) => {
       e.preventDefault();
       const name = e.target.name.value.trim();
@@ -205,7 +318,7 @@
   }
 
   function connect(token) {
-    app.innerHTML = '<p>Conectando…</p>';
+    status('Embaralhando as cartas…');
     send = () => {};
     peer = new Peer(PEER_PREFIX + roomId);
     peer.on('open', () => createHost(token));
@@ -220,46 +333,68 @@
   function reconnect() {
     if (peer.destroyed) return;
     peer.destroy();
-    app.innerHTML = '<p>Reconectando…</p>';
+    status('Reconectando à mesa…');
     setTimeout(() => connect(loadToken()), 500 + Math.random() * 2000);
+  }
+
+  function status(text) {
+    lastJson = '';
+    app.innerHTML = `<p class="muted">${text}</p>`;
   }
 
   function showError(err) {
     console.error(err);
-    app.innerHTML = '<p>Não foi possível conectar. Verifique a rede e recarregue a página.</p>';
+    status('Não foi possível conectar. Verifique a rede e recarregue a página.');
   }
 
-  function summary(players) {
+  function results(players) {
     const votes = players.map((p) => p.vote).filter((v) => v !== null);
     const numbers = votes.map(Number).filter((n) => !Number.isNaN(n));
-    const avg = numbers.length ? (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(1) : '-';
+    const avg = numbers.length ? +(numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(1) : '–';
     const counts = Object.entries(votes.reduce((acc, v) => ({ ...acc, [v]: (acc[v] ?? 0) + 1 }), {}))
-      .map(([v, n]) => `${esc(v)} × ${n}`).join(' · ');
-    return `Média: <strong>${avg}</strong>${counts ? `<br>${counts}` : ''}`;
+      .sort((a, b) => b[1] - a[1]);
+    const consensus = votes.length > 1 && counts.length === 1;
+    return `
+      <div class="stats"><span class="avg-label">Média</span><span class="avg">${avg}</span></div>
+      ${consensus ? '<span class="consensus">Consenso!</span>' : ''}
+      <div class="dist">${counts.map(([v, n]) => `<span>${esc(v)} × ${n}</span>`).join('')}</div>`;
   }
 
   function render(state) {
+    const json = JSON.stringify(state);
+    if (json === lastJson) return;
+    lastJson = json;
+    const flip = state.revealed && !lastRevealed;
+    lastRevealed = state.revealed;
+
     const me = state.players.find((p) => p.id === state.me);
     const voted = state.players.filter((p) => p.voted).length;
     myVote = me?.vote ?? null;
 
+    const seat = (p) => {
+      const card = !p.voted ? 'empty' : state.revealed ? `face${flip ? ' flip' : ''}` : 'back';
+      return `
+        <div class="seat ${p.id === state.me ? 'me' : ''}">
+          <div class="mini ${card}">${state.revealed ? esc(p.vote ?? '') : ''}</div>
+          <span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
+        </div>`;
+    };
+    const top = state.players.filter((_, i) => i % 2 === 0);
+    const bottom = state.players.filter((_, i) => i % 2 === 1);
+
+    let center;
+    if (state.revealed) center = `${results(state.players)}<button class="btn" data-action="reset">Nova rodada</button>`;
+    else if (voted) center = `<button class="btn" data-action="reveal">Revelar cartas</button><span class="hint">${voted} de ${state.players.length} votaram</span>`;
+    else center = '<span class="hint">Escolham suas cartas</span>';
+
     app.innerHTML = `
-      <div class="players">
-        ${state.players.map((p) => `
-          <div class="player ${p.id === state.me ? 'me' : ''}">
-            <div class="slot ${state.revealed && p.voted ? 'shown' : p.voted ? 'voted' : ''}">${state.revealed ? esc(p.vote ?? '') : ''}</div>
-            <span>${esc(p.name)}</span>
-          </div>`).join('')}
-      </div>
-      <div class="table">
-        ${state.revealed
-          ? `<button data-action="reset">Nova rodada</button><div class="summary">${summary(state.players)}</div>`
-          : voted
-            ? `<button data-action="reveal">Revelar cartas</button><div class="summary">${voted}/${state.players.length} votaram</div>`
-            : `<div class="summary">Escolham suas cartas</div>`}
+      <div class="board">
+        <div class="seats">${top.map(seat).join('')}</div>
+        <div class="table">${center}</div>
+        <div class="seats bottom">${bottom.map(seat).join('')}</div>
       </div>
       <div class="deck">
-        ${DECK.map((c) => `<button data-card="${esc(c)}" class="${myVote === c ? 'sel' : ''}" ${state.revealed ? 'disabled' : ''}>${esc(c)}</button>`).join('')}
+        ${DECK.map((c) => `<button class="card ${myVote === c ? 'sel' : ''}" data-card="${esc(c)}" ${state.revealed ? 'disabled' : ''}><small>${esc(c)}</small>${esc(c)}</button>`).join('')}
       </div>`;
 
     app.querySelectorAll('[data-card]').forEach((b) => {
@@ -270,28 +405,38 @@
 
   function enterRoom(name) {
     myName = name;
-    tools.innerHTML = '<button class="ghost" id="copy">Copiar convite</button> <button class="ghost" id="rename">Trocar nome</button>';
-    document.getElementById('copy').onclick = (e) => {
-      navigator.clipboard.writeText(location.href).then(() => { e.target.textContent = 'Copiado!'; });
+    tools.innerHTML = `
+      <span class="chip">Sala <b>${esc(roomId)}</b></span>
+      <button class="btn ghost" id="copy">Copiar convite</button>
+      <button class="btn ghost" id="rename">Trocar nome</button>`;
+    document.getElementById('copy').onclick = () => {
+      navigator.clipboard.writeText(location.href).then(() => toast('Convite copiado!'));
     };
     document.getElementById('rename').onclick = () => {
       peer.destroy();
-      nameForm('Entrar', enterRoom);
+      joinForm();
     };
     connect(loadToken());
+  }
+
+  function joinForm() {
+    nameForm({ title: 'Puxe uma <span>cadeira</span>', subtitle: 'Te chamaram para estimar. Diga seu nome e entre na mesa.', label: 'Entrar na sala', onSubmit: enterRoom });
   }
 
   window.addEventListener('hashchange', () => location.reload());
   window.addEventListener('pagehide', () => peer?.destroy());
 
   if (!ROOM_ID.test(roomId)) {
-    nameForm('Criar sala', () => {
-      location.hash = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+    nameForm({
+      title: 'Car<span>tada</span>',
+      subtitle: 'Planning poker direto ao ponto. Abra uma mesa, mande o link e estimem juntos.',
+      label: 'Criar sala',
+      onSubmit: () => { location.hash = crypto.randomUUID().replace(/-/g, '').slice(0, 10); },
     });
   } else if (storage(NAME_KEY)) {
     enterRoom(storage(NAME_KEY));
   } else {
-    nameForm('Entrar', enterRoom);
+    joinForm();
   }
 </script>
 </body>
