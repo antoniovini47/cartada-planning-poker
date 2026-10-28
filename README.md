@@ -18,7 +18,7 @@ Sem cadastro · Sem servidor · Sem banco de dados · Grátis
 2. Clique em **Copiar convite** e mande o link para o time.
 3. Cada pessoa escolhe uma carta. Ninguém vê o voto dos outros, e quem ainda não votou fica piscando na mesa.
 4. Alguém clica em **Revelar cartas**: contagem 3, 2, 1 e as cartas viram.
-5. Aparecem a média, a distribuição dos votos e o selo de **Consenso!** quando todos votam igual.
+5. Aparecem a média, a distribuição dos votos e o selo de **Consenso!** quando todos votam igual. Quem mudar de ideia ainda pode trocar o voto: a média recalcula e a carta fica marcada como alterada.
 6. Clique em **Nova rodada** e repita.
 
 Quem conduz a sessão sem estimar (PO, facilitador) marca **Só assistir**: fica fora da mesa e da contagem de votos, mas pode revelar e iniciar rodadas.
