@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Planning Poker</title>
+<style>
+  :root { --bg:#f4f6fb; --fg:#1d2433; --muted:#6b7385; --card:#fff; --accent:#3b6cf6; --table:#dce6ff; --border:#d5dae5; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); min-height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; background:var(--card); border-bottom:1px solid var(--border); }
+  header strong { font-size:18px; }
+  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:32px; padding:24px 16px; }
+  button { font:inherit; font-weight:600; cursor:pointer; border:0; border-radius:8px; padding:10px 18px; background:var(--accent); color:#fff; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 12px; }
+  input { font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px; width:100%; }
+  form { display:flex; flex-direction:column; gap:12px; width:min(320px,100%); }
+  .players { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; max-width:720px; }
+  .player { display:flex; flex-direction:column; align-items:center; gap:6px; width:80px; font-size:14px; text-align:center; overflow-wrap:anywhere; }
+  .player.me { font-weight:700; }
+  .slot { width:44px; height:64px; border-radius:8px; border:2px dashed var(--border); display:grid; place-items:center; font-weight:700; font-size:18px; }
+  .slot.voted { background:var(--accent); border:0; }
+  .slot.shown { background:var(--card); border:2px solid var(--accent); color:var(--accent); }
+  .table { background:var(--table); border-radius:24px; padding:32px 40px; min-width:min(280px,100%); text-align:center; }
+  .summary { margin-top:12px; color:var(--muted); font-size:15px; }
+  .deck { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+  .deck button { width:52px; height:76px; padding:0; font-size:18px; background:var(--card); color:var(--accent); border:2px solid var(--accent); transition:transform .1s; }
+  .deck button.sel { background:var(--accent); color:#fff; transform:translateY(-8px); }
+  .deck button:disabled { opacity:.4; cursor:default; }
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<header>
+  <strong>Planning Poker</strong>
+  <span id="tools"></span>
+</header>
+<main id="app"></main>
+<script>
+  const DECK = ['0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '89', '?', '☕'];
+  const PEER_PREFIX = 'ppoker-room-';
+  const TOKEN_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+  const LEAVE_GRACE_MS = 10_000;
+  const HEARTBEAT_MS = 5_000;
+  const HOST_TIMEOUT_MS = 15_000;
+  const NAME_KEY = 'pp:name';
+  const TOKEN_KEY = 'pp:token';
+  const ROOM_ID = /^[a-z0-9]{6,32}$/i;
+
+  const app = document.getElementById('app');
+  const tools = document.getElementById('tools');
+  const roomId = location.hash.slice(1);
+
+  let peer;
+  let send;
+  let myName;
+  let myVote = null;
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+  function storage(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem(key);
+      localStorage.setItem(key, value);
+    } catch {
+      return null;
+    }
+  }
+
+  function loadToken() {
+    try {
+      const saved = JSON.parse(storage(TOKEN_KEY));
+      if (saved && saved.expiresAt > Date.now()) return saved.value;
+    } catch {}
+    const value = crypto.randomUUID();
+    storage(TOKEN_KEY, JSON.stringify({ value, expiresAt: Date.now() + TOKEN_TTL_MS }));
+    return value;
+  }
+
+  async function playerId(token) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+    return [...new Uint8Array(digest)].slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function nameForm(label, onSubmit) {
+    tools.innerHTML = '';
+    app.innerHTML = `
+      <form>
+        <input name="name" maxlength="30" placeholder="Seu nome" required value="${esc(storage(NAME_KEY) ?? '')}" autofocus>
+        <button>${label}</button>
+      </form>`;
+    app.querySelector('form').onsubmit = (e) => {
+      e.preventDefault();
+      const name = e.target.name.value.trim();
+      if (!name) return;
+      storage(NAME_KEY, name);
+      onSubmit(name);
+    };
+  }
+
+  // Host: the first browser to claim the room's peer id holds the state and relays it.
+  function createHost(token) {
+    const hostPeer = peer;
+    const room = { revealed: false, players: new Map() };
+    const views = new Map();
+
+    function snapshot(me) {
+      const players = [...room.players].map(([id, p]) => ({
+        id,
+        name: p.name,
+        voted: p.vote !== null,
+        vote: room.revealed || id === me ? p.vote : null,
+      }));
+      return { me, revealed: room.revealed, players };
+    }
+
+    function publish() {
+      for (const [view, id] of views) view(snapshot(id));
+    }
+
+    function join(id, view, name, vote) {
+      const player = room.players.get(id) ?? { vote: null, connections: 0 };
+      player.name = String(name).trim().slice(0, 30) || 'Anônimo';
+      if (player.vote === null && DECK.includes(vote)) player.vote = vote;
+      player.connections++;
+      room.players.set(id, player);
+      views.set(view, id);
+      publish();
+    }
+
+    function leave(view) {
+      const id = views.get(view);
+      if (!id) return;
+      views.delete(view);
+      const player = room.players.get(id);
+      player.connections--;
+      setTimeout(() => {
+        if (player.connections === 0 && room.players.get(id) === player) {
+          room.players.delete(id);
+          publish();
+        }
+      }, LEAVE_GRACE_MS);
+    }
+
+    function act(id, msg) {
+      const player = room.players.get(id);
+      if (!player) return;
+      if (msg.type === 'vote') {
+        if (room.revealed || (msg.card !== null && !DECK.includes(msg.card))) return;
+        player.vote = msg.card;
+      } else if (msg.type === 'reveal') {
+        room.revealed = true;
+      } else if (msg.type === 'reset') {
+        room.revealed = false;
+        for (const p of room.players.values()) p.vote = null;
+      } else {
+        return;
+      }
+      publish();
+    }
+
+    peer.on('connection', (conn) => {
+      let id;
+      conn.on('data', async (msg) => {
+        if (!id && msg?.type === 'hello' && typeof msg.token === 'string' && msg.token.length <= 64) {
+          id = await playerId(msg.token);
+          join(id, (state) => conn.send({ type: 'state', state }), msg.name, msg.vote);
+        } else if (id) {
+          act(id, msg);
+        }
+      });
+      conn.on('close', () => leave(conn));
+    });
+
+    const heartbeat = setInterval(() => (hostPeer.destroyed ? clearInterval(heartbeat) : publish()), HEARTBEAT_MS);
+
+    playerId(token).then((id) => {
+      join(id, render, myName, myVote);
+      send = (msg) => act(id, msg);
+    });
+  }
+
+  function joinAsGuest(token) {
+    const guestPeer = new Peer();
+    let lastSeen = Date.now();
+    const watchdog = setInterval(() => {
+      if (guestPeer.destroyed) clearInterval(watchdog);
+      else if (Date.now() - lastSeen > HOST_TIMEOUT_MS) reconnect();
+    }, 2_000);
+
+    peer = guestPeer;
+    peer.on('open', () => {
+      const conn = peer.connect(PEER_PREFIX + roomId, { reliable: true });
+      conn.on('open', () => {
+        send = (msg) => conn.send(msg);
+        send({ type: 'hello', token, name: myName, vote: myVote });
+      });
+      conn.on('data', (msg) => {
+        lastSeen = Date.now();
+        if (msg?.type === 'state') render(msg.state);
+      });
+      conn.on('close', reconnect);
+    });
+    peer.on('error', (err) => (err.type === 'peer-unavailable' ? reconnect() : showError(err)));
+  }
+
+  function connect(token) {
+    app.innerHTML = '<p>Conectando…</p>';
+    send = () => {};
+    peer = new Peer(PEER_PREFIX + roomId);
+    peer.on('open', () => createHost(token));
+    peer.on('error', (err) => {
+      if (err.type !== 'unavailable-id') return showError(err);
+      peer.destroy();
+      joinAsGuest(token);
+    });
+  }
+
+  // When the host leaves, every guest races to become the new host; the jitter avoids a stampede.
+  function reconnect() {
+    if (peer.destroyed) return;
+    peer.destroy();
+    app.innerHTML = '<p>Reconectando…</p>';
+    setTimeout(() => connect(loadToken()), 500 + Math.random() * 2000);
+  }
+
+  function showError(err) {
+    console.error(err);
+    app.innerHTML = '<p>Não foi possível conectar. Verifique a rede e recarregue a página.</p>';
+  }
+
+  function summary(players) {
+    const votes = players.map((p) => p.vote).filter((v) => v !== null);
+    const numbers = votes.map(Number).filter((n) => !Number.isNaN(n));
+    const avg = numbers.length ? (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(1) : '-';
+    const counts = Object.entries(votes.reduce((acc, v) => ({ ...acc, [v]: (acc[v] ?? 0) + 1 }), {}))
+      .map(([v, n]) => `${esc(v)} × ${n}`).join(' · ');
+    return `Média: <strong>${avg}</strong>${counts ? `<br>${counts}` : ''}`;
+  }
+
+  function render(state) {
+    const me = state.players.find((p) => p.id === state.me);
+    const voted = state.players.filter((p) => p.voted).length;
+    myVote = me?.vote ?? null;
+
+    app.innerHTML = `
+      <div class="players">
+        ${state.players.map((p) => `
+          <div class="player ${p.id === state.me ? 'me' : ''}">
+            <div class="slot ${state.revealed && p.voted ? 'shown' : p.voted ? 'voted' : ''}">${state.revealed ? esc(p.vote ?? '') : ''}</div>
+            <span>${esc(p.name)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="table">
+        ${state.revealed
+          ? `<button data-action="reset">Nova rodada</button><div class="summary">${summary(state.players)}</div>`
+          : voted
+            ? `<button data-action="reveal">Revelar cartas</button><div class="summary">${voted}/${state.players.length} votaram</div>`
+            : `<div class="summary">Escolham suas cartas</div>`}
+      </div>
+      <div class="deck">
+        ${DECK.map((c) => `<button data-card="${esc(c)}" class="${myVote === c ? 'sel' : ''}" ${state.revealed ? 'disabled' : ''}>${esc(c)}</button>`).join('')}
+      </div>`;
+
+    app.querySelectorAll('[data-card]').forEach((b) => {
+      b.onclick = () => send({ type: 'vote', card: myVote === b.dataset.card ? null : b.dataset.card });
+    });
+    app.querySelector('[data-action]')?.addEventListener('click', (e) => send({ type: e.target.dataset.action }));
+  }
+
+  function enterRoom(name) {
+    myName = name;
+    tools.innerHTML = '<button class="ghost" id="copy">Copiar convite</button> <button class="ghost" id="rename">Trocar nome</button>';
+    document.getElementById('copy').onclick = (e) => {
+      navigator.clipboard.writeText(location.href).then(() => { e.target.textContent = 'Copiado!'; });
+    };
+    document.getElementById('rename').onclick = () => {
+      peer.destroy();
+      nameForm('Entrar', enterRoom);
+    };
+    connect(loadToken());
+  }
+
+  window.addEventListener('hashchange', () => location.reload());
+  window.addEventListener('pagehide', () => peer?.destroy());
+
+  if (!ROOM_ID.test(roomId)) {
+    nameForm('Criar sala', () => {
+      location.hash = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+    });
+  } else if (storage(NAME_KEY)) {
+    enterRoom(storage(NAME_KEY));
+  } else {
+    nameForm('Entrar', enterRoom);
+  }
+</script>
+</body>
+</html>
