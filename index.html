@@ -39,6 +39,9 @@
   #tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .chip { font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; }
   .chip b { color: var(--fg); font-weight: 600; }
+  .chip, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+  .chip svg { width: 14px; height: 14px; flex: none; }
+  .btn svg { width: 16px; height: 16px; flex: none; }
   .btn { font-weight: 600; border-radius: 10px; padding: 12px 22px; background: var(--gold); color: var(--gold-ink); box-shadow: 0 6px 20px rgba(245, 181, 68, .25); transition: transform .12s, box-shadow .12s; }
   .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(245, 181, 68, .35); }
   .btn.ghost { background: var(--surface); color: var(--fg); border: 1px solid var(--border); box-shadow: none; padding: 7px 14px; font-size: 14px; }
@@ -48,7 +51,7 @@
   .muted { color: var(--muted); }
 
   .hero { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; max-width: 440px; }
-  .hero svg { width: 96px; height: 96px; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .4)); }
+  .hero > svg { width: 96px; height: 96px; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .4)); }
   .hero h1 { margin: 0; font-size: clamp(40px, 9vw, 64px); font-weight: 800; letter-spacing: -.04em; line-height: 1; }
   .hero h1 span { color: var(--gold); }
   .hero p { margin: 0; color: var(--muted); font-size: 17px; }
@@ -175,8 +178,8 @@
     <input name="name" maxlength="30" placeholder="Como te chamam?" required>
     <label class="check"><input type="checkbox" name="spectator"> Só assistir (não voto)</label>
     <div class="actions">
-      <button class="btn ghost" value="cancel" formnovalidate>Cancelar</button>
-      <button class="btn" value="save">Salvar</button>
+      <button class="btn ghost" value="cancel" formnovalidate><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Cancelar</button>
+      <button class="btn" value="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Salvar</button>
     </div>
   </form>
 </dialog>
@@ -203,6 +206,17 @@
   const ROOM_ID = /^[a-z0-9]{6,32}$/i;
   const REPO_URL = 'https://github.com/antoniovini47/cartada-planning-poker';
   const GITHUB_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+  const icon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  const ICONS = {
+    room: icon('<path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/>'),
+    link: icon('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+    profile: icon('<path d="M11.5 15H7a4 4 0 0 0-4 4v2"/><path d="M21.38 16.63a1 1 0 0 0-3-3l-4.02 4.01a2 2 0 0 0-.5.86l-.84 2.87a.5.5 0 0 0 .62.62l2.87-.84a2 2 0 0 0 .86-.5z"/><circle cx="10" cy="7" r="4"/>'),
+    create: icon('<path d="M5 12h14"/><path d="M12 5v14"/>'),
+    enter: icon('<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>'),
+    reveal: icon('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'),
+    reset: icon('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'),
+    back: icon('<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>'),
+  };
   const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="16" height="22" rx="3" fill="#1f7a52" transform="rotate(-12 12 17)"/><rect x="12" y="4" width="16" height="22" rx="3" fill="#f5b544" transform="rotate(10 20 15)"/></svg>';
 
   const app = document.getElementById('app');
@@ -501,9 +515,9 @@
     const bottom = voters.filter((_, i) => i % 2 === 1);
 
     let center;
-    if (state.revealed) center = `${results(state.players)}<button class="btn" data-action="reset">Nova rodada</button>`;
+    if (state.revealed) center = `${results(state.players)}<button class="btn" data-action="reset">${ICONS.reset}Nova rodada</button>`;
     else if (state.countdown) center = `<span class="countdown">${state.countdown}</span>`;
-    else if (voted) center = `<button class="btn" data-action="reveal">Revelar cartas</button><span class="hint">${voted} de ${voters.length} votaram</span>`;
+    else if (voted) center = `<button class="btn" data-action="reveal">${ICONS.reveal}Revelar cartas</button><span class="hint">${voted} de ${voters.length} votaram</span>`;
     else center = '<span class="hint">Escolham suas cartas</span>';
 
     app.innerHTML = `
@@ -523,7 +537,7 @@
     app.querySelectorAll('[data-card]').forEach((b) => {
       b.onclick = () => send({ type: 'vote', card: myVote === b.dataset.card ? null : b.dataset.card });
     });
-    app.querySelector('[data-action]')?.addEventListener('click', (e) => send({ type: e.target.dataset.action }));
+    app.querySelector('[data-action]')?.addEventListener('click', (e) => send({ type: e.currentTarget.dataset.action }));
   }
 
   function enterRoom(name, spectator) {
@@ -533,9 +547,9 @@
     remember(SPECTATOR_KEY, spectator);
     remember(LAST_ROOM_KEY, roomId);
     tools.innerHTML = `
-      <span class="chip">Sala <b>${esc(roomId)}</b></span>
-      <button class="btn ghost" id="copy">Copiar convite</button>
-      <button class="btn ghost" id="rename">Nome e modo</button>`;
+      <span class="chip">${ICONS.room}Sala <b>${esc(roomId)}</b></span>
+      <button class="btn ghost" id="copy">${ICONS.link}Copiar convite</button>
+      <button class="btn ghost" id="rename">${ICONS.profile}Nome e modo</button>`;
     document.getElementById('copy').onclick = () => {
       navigator.clipboard.writeText(location.href).then(() => toast('Convite copiado!'));
     };
@@ -562,7 +576,7 @@
   }
 
   function joinForm() {
-    nameForm({ title: 'Puxe uma <span>cadeira</span>', subtitle: 'Te chamaram para estimar. Diga seu nome e entre na mesa.', label: 'Entrar na sala', onSubmit: enterRoom });
+    nameForm({ title: 'Puxe uma <span>cadeira</span>', subtitle: 'Te chamaram para estimar. Diga seu nome e entre na mesa.', label: `${ICONS.enter}Entrar na sala`, onSubmit: enterRoom });
   }
 
   // Retries cover the few seconds a room takes to elect a new host right after we left it.
@@ -572,7 +586,7 @@
     for (let i = 0; i < PROBE_ATTEMPTS; i++) {
       if (await probeRoom(last)) {
         app.querySelector('form')?.insertAdjacentHTML('beforeend',
-          `<a class="btn ghost back" href="#${esc(last)}">Voltar para a sala <b>${esc(last)}</b></a>`);
+          `<a class="btn ghost back" href="#${esc(last)}">${ICONS.back}Voltar para a sala <b>${esc(last)}</b></a>`);
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, PROBE_RETRY_MS));
@@ -586,7 +600,7 @@
     nameForm({
       title: 'Car<span>tada</span>',
       subtitle: 'Planning poker direto ao ponto. Abra uma mesa, mande o link e estimem juntos.',
-      label: 'Criar sala',
+      label: `${ICONS.create}Criar sala`,
       onSubmit: (name, spectator) => {
         remember(NAME_KEY, name);
         remember(SPECTATOR_KEY, spectator);
